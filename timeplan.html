@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>시간 알림이</title>
+    <!-- Tailwind CSS를 위한 CDN 링크 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 'Inter' 폰트를 사용하도록 설정 */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+
+    <!-- 메인 컨테이너 -->
+    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
+        <!-- 제목 -->
+        <h1 class="text-3xl font-bold text-gray-800">시간 알림이</h1>
+        
+        <!-- 현재 시간을 표시하는 부분 -->
+        <div id="clock" class="text-5xl font-mono my-4 text-gray-800"></div>
+
+        <!-- 메시지를 표시하는 부분 -->
+        <div id="message" class="text-3xl font-bold text-blue-600 h-10"></div>
+        
+        <!-- 음소거 버튼 -->
+        <button id="mute-button" class="mt-6 px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors">
+            음소거
+        </button>
+    </div>
+
+    <script>
+        // Web Audio API를 사용하여 소리 생성
+        let audioContext;
+        let isMuted = false;
+        let lastMinute = -1; // 동일한 분에 소리가 중복 재생되는 것을 방지하기 위한 변수
+
+        // '딩동댕동' 소리를 재생하는 함수
+        function playDingDong() {
+            if (isMuted) return;
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const frequencies = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 음
+            let delay = 0;
+
+            frequencies.forEach(freq => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.value = freq;
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime + delay);
+                gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + delay + 0.05);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + delay + 0.2);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.start(audioContext.currentTime + delay);
+                oscillator.stop(audioContext.currentTime + delay + 0.2);
+
+                delay += 0.3;
+            });
+        }
+
+        // '휴식' 소리를 재생하는 함수
+        function playRest() {
+            if (isMuted) return;
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 392; // G4 음
+            
+            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.05);
+            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        // 시계를 업데이트하고 알림을 확인하는 함수
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const messageEl = document.getElementById('message');
+            
+            // 현재 시간을 표시
+            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+
+            // 정각(0분) 또는 50분인지 확인
+            if (now.getMinutes() === 0 && now.getSeconds() === 0 && lastMinute !== 0) {
+                messageEl.textContent = '딩동댕동';
+                playDingDong();
+                lastMinute = 0;
+            } else if (now.getMinutes() === 50 && now.getSeconds() === 0 && lastMinute !== 50) {
+                messageEl.textContent = '휴식';
+                playRest();
+                lastMinute = 50;
+            } else if (now.getMinutes() !== 0 && now.getMinutes() !== 50) {
+                messageEl.textContent = ''; // 알림 시간이 아닐 경우 메시지 지우기
+                lastMinute = -1; // 다음 정각/50분 알림을 위해 초기화
+            }
+        }
+
+        // 음소거 버튼 기능
+        document.getElementById('mute-button').addEventListener('click', () => {
+            isMuted = !isMuted;
+            const button = document.getElementById('mute-button');
+            if (isMuted) {
+                button.textContent = '음소거 해제';
+                button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                button.classList.add('bg-gray-400', 'hover:bg-gray-500');
+            } else {
+                button.textContent = '음소거';
+                button.classList.remove('bg-gray-400', 'hover:bg-gray-500');
+                button.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                // 음소거 해제 시 AudioContext가 중단되었을 수 있으므로 다시 생성
+                if (!audioContext || audioContext.state === 'suspended') {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+        });
+        
+        // 매초 시계를 업데이트
+        setInterval(updateClock, 1000);
+        
+        // 페이지 로드 시 바로 시계를 표시
+        updateClock();
+    </script>
+
+</body>
+</html>
