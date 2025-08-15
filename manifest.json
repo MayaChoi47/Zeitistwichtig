@@ -5,8 +5,16 @@
   "start_url": "/index.html",
   "id": "/index.html",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "fullscreen"],
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
+  "lang": "ko-KR",
+  "dir": "auto",
+  "categories": ["utilities", "productivity", "education"],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
     {
       "src": "https://placehold.co/192x192/000000/FFFFFF?text=A",
@@ -19,7 +27,41 @@
       "type": "image/png"
     }
   ],
-  "launch_handler": {
-    "client_mode": "navigate-existing"
-  }
+  "screenshots": [
+    {
+      "src": "https://placehold.co/540x720/E0E0E0/333333?text=App+Screenshot+1",
+      "sizes": "540x720",
+      "type": "image/png"
+    },
+    {
+      "src": "https://placehold.co/540x720/E0E0E0/333333?text=App+Screenshot+2",
+      "sizes": "540x720",
+      "type": "image/png"
+    }
+  ],
+  "share_target": {
+    "action": "/share.html",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "정각 알림",
+      "short_name": "정각",
+      "description": "다음 정각 알림을 설정합니다.",
+      "url": "/index.html?shortcut=on-the-hour",
+      "icons": [{ "src": "https://placehold.co/96x96/000000/FFFFFF?text=H", "sizes": "96x96" }]
+    },
+    {
+      "name": "휴식 알림",
+      "short_name": "휴식",
+      "description": "다음 휴식 알림을 설정합니다.",
+      "url": "/index.html?shortcut=on-the-50",
+      "icons": [{ "src": "https://placehold.co/96x96/000000/FFFFFF?text=R", "sizes": "96x96" }]
+    }
+  ]
 }
