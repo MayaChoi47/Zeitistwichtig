@@ -3,6 +3,7 @@
   "short_name": "알림이",
   "description": "정각과 50분에 소리를 내는 시계 앱",
   "start_url": "/index.html",
+  "id": "/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
@@ -17,5 +18,8 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }

@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <link rel="manifest" href="/manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>시간 알림이</title>
+    <!-- PWA를 위한 manifest.json 파일 링크 -->
+    <link rel="manifest" href="manifest.json">
     <!-- Tailwind CSS를 위한 CDN 링크 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -34,6 +35,19 @@
     </div>
 
     <script>
+        // PWA를 위한 Service Worker 등록
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered with scope: ', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed: ', error);
+                    });
+            });
+        }
+    
         // Web Audio API를 사용하여 소리 생성
         let audioContext;
         let isMuted = false;
