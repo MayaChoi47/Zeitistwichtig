@@ -3,162 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시간 알림이</title>
-    <!-- PWA를 위한 manifest.json 파일 링크 -->
-    <link rel="manifest" href="manifest.json">
-    <!-- Tailwind CSS를 위한 CDN 링크 -->
+    <title>수업 시간 알리미</title>
+    <!-- Tailwind CSS를 위한 스크립트 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 'Inter' 폰트를 사용하도록 설정 */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        
+        /* '무궁이 태호 호랑이 남매' 이미지를 배경으로 설정 */
         body {
             font-family: 'Inter', sans-serif;
+            background-image: url('https://wimg.heraldcorp.com/news/cms/2025/02/11/9/news-p.v1.20250211.bec465fd344441739c298ddb96d40022_P1.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed; /* 스크롤해도 배경 이미지가 고정됩니다 */
+        }
+        
+        /* Custom CSS for a clean look */
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
     </style>
 </head>
-<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+<body class="min-h-screen flex items-center justify-center p-4">
 
-    <!-- 메인 컨테이너 -->
-    <div class="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full text-center">
-        <!-- 제목 -->
-        <h1 class="text-3xl font-bold text-gray-800">시간 알림이</h1>
+    <div class="glass-effect rounded-3xl shadow-2xl p-8 w-full max-w-md text-white text-center">
+        <!-- 앱 제목 -->
+        <h1 class="text-3xl sm:text-4xl font-bold mb-4">수업 시간 알리미</h1>
+        <p class="text-sm sm:text-base opacity-80 mb-6">고등학생처럼 규칙적인 생활을 도와드립니다!</p>
         
-        <!-- 현재 시간을 표시하는 부분 -->
-        <div id="clock" class="text-5xl font-mono my-4 text-gray-800"></div>
+        <!-- 현재 시간을 보여주는 영역 -->
+        <div class="bg-white bg-opacity-20 rounded-2xl p-4 mb-6">
+            <div id="current-time" class="text-4xl sm:text-6xl font-extrabold tracking-wide">00:00:00</div>
+            <div id="current-date" class="text-lg sm:text-xl mt-2 opacity-90"></div>
+        </div>
 
-        <!-- 메시지를 표시하는 부분 -->
-        <div id="message" class="text-3xl font-bold text-blue-600 h-10"></div>
+        <!-- 알림 메시지 영역 -->
+        <div id="status-message" class="text-2xl sm:text-3xl font-bold h-12 flex items-center justify-center mb-6">
+            <!-- 알림 메시지가 여기에 표시됩니다 -->
+        </div>
+
+        <!-- 방해금지 모드 토글 버튼 및 설명 -->
+        <div class="bg-white bg-opacity-20 rounded-2xl p-4 flex items-center justify-between mb-4">
+            <span class="text-lg font-semibold">방해금지 모드</span>
+            <label for="dnd-toggle" class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="dnd-toggle" class="sr-only peer">
+                <div class="w-14 h-8 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+        </div>
         
-        <!-- 음소거 버튼 -->
-        <button id="mute-button" class="mt-6 px-4 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors">
-            음소거
-        </button>
+        <!-- 방해금지 시간 설정 안내 -->
+        <p id="dnd-info" class="text-sm opacity-80 mt-2">
+            현재 방해금지 시간: 23:00 ~ 07:00
+        </p>
+
+        <!-- 메시지 박스 (alert 대신 사용) -->
+        <div id="message-box" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white text-gray-800 p-6 rounded-2xl shadow-xl max-w-sm w-full text-center">
+                <h3 id="message-box-title" class="text-2xl font-bold mb-2"></h3>
+                <p id="message-box-content" class="mb-4"></p>
+                <button onclick="closeMessageBox()" class="bg-purple-600 text-white font-bold py-2 px-6 rounded-full transition-transform transform hover:scale-105">확인</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // PWA를 위한 Service Worker 등록
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('Service Worker registered with scope: ', registration.scope);
-                    })
-                    .catch(error => {
-                        console.log('Service Worker registration failed: ', error);
-                    });
-            });
-        }
-    
-        // Web Audio API를 사용하여 소리 생성
-        let audioContext;
-        let isMuted = false;
-        let lastMinute = -1; // 동일한 분에 소리가 중복 재생되는 것을 방지하기 위한 변수
+        // DOM 요소 가져오기
+        const currentTimeEl = document.getElementById('current-time');
+        const currentDateEl = document.getElementById('current-date');
+        const statusMessageEl = document.getElementById('status-message');
+        const dndToggle = document.getElementById('dnd-toggle');
+        const messageBox = document.getElementById('message-box');
+        const messageBoxTitle = document.getElementById('message-box-title');
+        const messageBoxContent = document.getElementById('message-box-content');
 
-        // '딩동댕동' 소리를 재생하는 함수
-        function playDingDong() {
-            if (isMuted) return;
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
+        // 방해금지 모드 시간 설정 (23:00 ~ 07:00)
+        const DND_START_HOUR = 23;
+        const DND_END_HOUR = 7;
+        let isDndActive = false;
 
-            const frequencies = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 음
-            let delay = 0;
-
-            frequencies.forEach(freq => {
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-
-                oscillator.type = 'sine';
-                oscillator.frequency.value = freq;
-                
-                gainNode.gain.setValueAtTime(0, audioContext.currentTime + delay);
-                gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + delay + 0.05);
-                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + delay + 0.2);
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-
-                oscillator.start(audioContext.currentTime + delay);
-                oscillator.stop(audioContext.currentTime + delay + 0.2);
-
-                delay += 0.3;
-            });
-        }
-
-        // '휴식' 소리를 재생하는 함수
-        function playRest() {
-            if (isMuted) return;
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.type = 'sine';
-            oscillator.frequency.value = 392; // G4 음
-            
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.5, audioContext.currentTime + 0.05);
-            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.5);
-        }
-
-        // 시계를 업데이트하고 알림을 확인하는 함수
-        function updateClock() {
+        /**
+         * 현재 시간을 업데이트하고, 수업 시작/종료 알림을 확인합니다.
+         */
+        function updateTime() {
             const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
+            let hours = now.getHours();
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const seconds = String(now.getSeconds()).padStart(2, '0');
-            const messageEl = document.getElementById('message');
-            
-            // 현재 시간을 표시
-            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+            const day = ['일', '월', '화', '수', '목', '금', '토'][now.getDay()];
+            const date = `${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 ${day}요일`;
 
-            // 정각(0분) 또는 50분인지 확인
-            if (now.getMinutes() === 0 && now.getSeconds() === 0 && lastMinute !== 0) {
-                messageEl.textContent = '딩동댕동';
-                playDingDong();
-                lastMinute = 0;
-            } else if (now.getMinutes() === 50 && now.getSeconds() === 0 && lastMinute !== 50) {
-                messageEl.textContent = '휴식';
-                playRest();
-                lastMinute = 50;
-            } else if (now.getMinutes() !== 0 && now.getMinutes() !== 50) {
-                messageEl.textContent = ''; // 알림 시간이 아닐 경우 메시지 지우기
-                lastMinute = -1; // 다음 정각/50분 알림을 위해 초기화
+            // 24시간을 12시간 형식(오전/오후)으로 변환
+            const ampm = hours >= 12 ? '오후' : '오전';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0시를 12시로 표시
+            hours = String(hours).padStart(2, '0');
+            
+            currentTimeEl.textContent = `${ampm} ${hours}:${minutes}:${seconds}`;
+            currentDateEl.textContent = date;
+
+            // 방해금지 모드 시간 확인
+            const currentHour = now.getHours();
+            if (currentHour >= DND_START_HOUR || currentHour < DND_END_HOUR) {
+                isDndActive = true;
+            } else {
+                isDndActive = false;
+            }
+
+            // 방해금지 모드 수동 토글이 켜져 있으면, isDndActive 상태를 유지
+            if (dndToggle.checked) {
+                isDndActive = true;
+            }
+            
+            // 50분 또는 정시에 알림을 보냅니다.
+            if (!isDndActive) {
+                if (minutes === '00' && seconds === '00') {
+                    showClassNotification('수업 시작!', '새로운 수업을 시작할 시간입니다.');
+                } else if (minutes === '50' && seconds === '00') {
+                    showClassNotification('수업 종료!', '잠깐의 휴식 시간을 즐기세요.');
+                }
             }
         }
 
-        // 음소거 버튼 기능
-        document.getElementById('mute-button').addEventListener('click', () => {
-            isMuted = !isMuted;
-            const button = document.getElementById('mute-button');
-            if (isMuted) {
-                button.textContent = '음소거 해제';
-                button.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                button.classList.add('bg-gray-400', 'hover:bg-gray-500');
+        /**
+         * 방해금지 모드 상태에 따라 UI를 업데이트합니다.
+         */
+        function updateDndStatus() {
+            const dndInfoEl = document.getElementById('dnd-info');
+            const isDndEnabled = dndToggle.checked;
+            
+            if (isDndEnabled) {
+                dndInfoEl.textContent = '방해금지 모드가 켜져 있습니다.';
+                dndInfoEl.classList.add('text-red-300');
             } else {
-                button.textContent = '음소거';
-                button.classList.remove('bg-gray-400', 'hover:bg-gray-500');
-                button.classList.add('bg-blue-500', 'hover:bg-blue-600');
-                // 음소거 해제 시 AudioContext가 중단되었을 수 있으므로 다시 생성
-                if (!audioContext || audioContext.state === 'suspended') {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
+                dndInfoEl.textContent = `현재 방해금지 시간: ${String(DND_START_HOUR).padStart(2, '0')}:00 ~ ${String(DND_END_HOUR).padStart(2, '0')}:00`;
+                dndInfoEl.classList.remove('text-red-300');
             }
-        });
-        
-        // 매초 시계를 업데이트
-        setInterval(updateClock, 1000);
-        
-        // 페이지 로드 시 바로 시계를 표시
-        updateClock();
-    </script>
+        }
 
+        /**
+         * 수업 알림 메시지를 표시합니다.
+         * @param {string} title - 메시지 제목
+         * @param {string} content - 메시지 내용
+         */
+        function showClassNotification(title, content) {
+            statusMessageEl.textContent = title;
+            statusMessageEl.classList.remove('animate-pulse');
+            setTimeout(() => {
+                statusMessageEl.textContent = '';
+                statusMessageEl.classList.add('animate-pulse');
+            }, 5000); // 5초 후 메시지 제거
+            
+            // 메시지 박스 표시 (alert 대신)
+            showMessageBox(title, content);
+        }
+
+        /**
+         * 커스텀 메시지 박스를 표시합니다.
+         * @param {string} title - 제목
+         * @param {string} content - 내용
+         */
+        function showMessageBox(title, content) {
+            messageBoxTitle.textContent = title;
+            messageBoxContent.textContent = content;
+            messageBox.classList.remove('hidden');
+        }
+
+        /**
+         * 커스텀 메시지 박스를 닫습니다.
+         */
+        function closeMessageBox() {
+            messageBox.classList.add('hidden');
+        }
+
+        // 초기화 함수
+        function initialize() {
+            // 초기 시간 및 UI 업데이트
+            updateTime();
+            updateDndStatus();
+
+            // 1초마다 시간 업데이트
+            setInterval(updateTime, 1000);
+
+            // 방해금지 모드 토글 이벤트 리스너
+            dndToggle.addEventListener('change', updateDndStatus);
+        }
+
+        // 페이지 로드 후 초기화 함수 실행
+        window.onload = initialize;
+    </script>
 </body>
 </html>
