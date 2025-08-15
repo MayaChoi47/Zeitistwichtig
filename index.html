@@ -11,12 +11,12 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         
-        /* 배경 이미지를 바둑판식으로 4개 배치 */
+        /* 배경 이미지를 화면에 꽉 차게 설정하고, 반복하지 않도록 수정 */
         body {
             font-family: 'Inter', sans-serif;
             background-image: url('https://i.namu.wiki/i/vzlCKTekAQcSoyZNmBfBLmsReUgao6-m9iwj4ziqa7s-RhQjUIgbmto0-Rq4Ze2kKfQPmHjtd1gzJAlxkY6egrzfhtL-KCCVqmKCCK1xIxcfJid-5shZu8kdQ-_Ao0O4oEgDyz3JZq7p4FQF63KRBQ.webp');
-            background-size: 50% 50%; /* 이미지를 50% 크기로 설정하여 4개로 보입니다 */
-            background-repeat: repeat; /* 이미지를 반복합니다 */
+            background-size: cover; /* 이미지를 화면에 꽉 차게 만듭니다 */
+            background-repeat: no-repeat; /* 이미지 반복을 제거합니다 */
             background-position: center;
             background-attachment: fixed; /* 스크롤해도 배경 이미지가 고정됩니다 */
         }
@@ -56,9 +56,6 @@
             </label>
         </div>
         
-        <!-- 호랑이 울음소리 테스트 버튼 -->
-        <button id="test-roar" class="w-full bg-purple-500 text-white font-bold py-2 px-4 rounded-full transition-transform transform hover:scale-105 mb-4">호랑이 울음소리 테스트</button>
-
         <!-- 방해금지 시간 설정 안내 -->
         <p id="dnd-info" class="text-sm opacity-80 mt-2">
             현재 방해금지 시간: 23:00 ~ 07:00
@@ -82,181 +79,12 @@
         const messageBox = document.getElementById('message-box');
         const messageBoxTitle = document.getElementById('message-box-title');
         const messageBoxContent = document.getElementById('message-box-content');
-        const testRoarButton = document.getElementById('test-roar');
 
         // 방해금지 모드 시간 설정 (23:00 ~ 07:00)
         const DND_START_HOUR = 23;
         const DND_END_HOUR = 7;
         let isDndActive = false;
-        
-        // 오디오 컨텍스트와 소스 노드
-        let audioContext = null;
-        let audioSource = null;
-        let tigerRoarAudioBuffer = null;
 
-        /**
-         * base64 데이터를 ArrayBuffer로 변환합니다.
-         * @param {string} base64 - Base64로 인코딩된 문자열
-         * @returns {ArrayBuffer}
-         */
-        function base64ToArrayBuffer(base64) {
-            const binaryString = window.atob(base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            return bytes.buffer;
-        }
-
-        /**
-         * PCM 데이터를 WAV 파일 형식으로 변환합니다.
-         * @param {Int16Array} pcmData - 16비트 PCM 데이터
-         * @param {number} sampleRate - 샘플링 속도
-         * @returns {Blob}
-         */
-        function pcmToWav(pcmData, sampleRate) {
-            const numChannels = 1;
-            const bitsPerSample = 16;
-            const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
-            const blockAlign = numChannels * (bitsPerSample / 8);
-            const dataSize = pcmData.length * (bitsPerSample / 8);
-
-            const buffer = new ArrayBuffer(44 + dataSize);
-            const view = new DataView(buffer);
-
-            // WAV 헤더
-            view.setUint32(0, 0x52494646, true); // "RIFF"
-            view.setUint32(4, 36 + dataSize, true); // 파일 크기
-            view.setUint32(8, 0x57415645, true); // "WAVE"
-            view.setUint32(12, 0x666d7420, true); // "fmt "
-            view.setUint32(16, 16, true); // fmt 덩크 크기
-            view.setUint16(20, 1, true); // 포맷 코드 (1 = PCM)
-            view.setUint16(22, numChannels, true); // 채널 수
-            view.setUint32(24, sampleRate, true); // 샘플링 속도
-            view.setUint32(28, byteRate, true); // 바이트 속도
-            view.setUint16(32, blockAlign, true); // 블록 정렬
-            view.setUint16(34, bitsPerSample, true); // 샘플당 비트 수
-            view.setUint32(36, 0x64617461, true); // "data"
-            view.setUint32(40, dataSize, true); // 데이터 크기
-
-            // PCM 데이터
-            for (let i = 0; i < pcmData.length; i++) {
-                view.setInt16(44 + i * 2, pcmData[i], true);
-            }
-
-            return new Blob([view], { type: 'audio/wav' });
-        }
-        
-        /**
-         * Gemini TTS API를 호출하여 호랑이 울음소리를 생성하고 재생합니다.
-         */
-        async function playTigerRoar() {
-            // 오디오 컨텍스트가 없으면 생성
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            // 이미 오디오가 재생 중이면 중단
-            if (audioSource) {
-                audioSource.stop();
-                audioSource.disconnect();
-            }
-
-            // 캐시된 오디오 버퍼가 있으면 바로 재생
-            if (tigerRoarAudioBuffer) {
-                audioSource = audioContext.createBufferSource();
-                audioSource.buffer = tigerRoarAudioBuffer;
-                audioSource.connect(audioContext.destination);
-                audioSource.start(0);
-                return;
-            }
-
-            try {
-                // API 호출을 위한 payload
-                const payload = {
-                    contents: [{
-                        parts: [{
-                            text: "Make a long, ferocious tiger roar sound. It sounds like the word 'roar' stretched out and deep."
-                        }]
-                    }],
-                    generationConfig: {
-                        responseModalities: ["AUDIO"],
-                        speechConfig: {
-                            voiceConfig: {
-                                prebuiltVoiceConfig: { voiceName: "Fenrir" }
-                            }
-                        }
-                    },
-                    model: "gemini-2.5-flash-preview-tts"
-                };
-
-                const apiKey = ""; // API 키는 런타임에 자동으로 제공됩니다.
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-
-                let response = null;
-                const maxRetries = 5;
-                for (let i = 0; i < maxRetries; i++) {
-                    try {
-                        response = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        if (response.status !== 429) {
-                            break; // 성공 또는 다른 오류 코드를 받으면 재시도 중단
-                        }
-                    } catch (error) {
-                        console.error('Fetch error:', error);
-                    }
-                    const delay = Math.pow(2, i) * 1000;
-                    await new Promise(res => setTimeout(res, delay));
-                }
-                
-                if (!response || !response.ok) {
-                    throw new Error(`API call failed with status: ${response ? response.status : 'No response'}`);
-                }
-
-                const result = await response.json();
-                const part = result?.candidates?.[0]?.content?.parts?.[0];
-                const audioData = part?.inlineData?.data;
-                const mimeType = part?.inlineData?.mimeType;
-                
-                if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                    const sampleRateMatch = mimeType.match(/rate=(\d+)/);
-                    const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 16000;
-                    const pcmData = base64ToArrayBuffer(audioData);
-                    const pcm16 = new Int16Array(pcmData);
-                    
-                    // PCM 데이터를 WAV로 변환
-                    const wavBlob = pcmToWav(pcm16, sampleRate);
-                    const audioUrl = URL.createObjectURL(wavBlob);
-
-                    // 오디오 버퍼 생성 후 재생
-                    const audioBlobUrl = URL.createObjectURL(wavBlob);
-                    const audioBuffer = await audioContext.decodeAudioData(await wavBlob.arrayBuffer());
-                    tigerRoarAudioBuffer = audioBuffer;
-
-                    audioSource = audioContext.createBufferSource();
-                    audioSource.buffer = tigerRoarAudioBuffer;
-                    audioSource.connect(audioContext.destination);
-                    audioSource.start(0);
-
-                    // 사용 후 URL 해제
-                    audioSource.onended = () => {
-                        URL.revokeObjectURL(audioBlobUrl);
-                    };
-
-                } else {
-                    console.error("오디오 데이터가 올바르지 않습니다.");
-                }
-
-            } catch (error) {
-                console.error("오디오 생성 및 재생 실패:", error);
-                showMessageBox('오디오 오류', '호랑이 울음소리를 재생하는 데 실패했습니다. 잠시 후 다시 시도해 주세요.');
-            }
-        }
-        
         /**
          * 현재 시간을 업데이트하고, 수업 시작/종료 알림을 확인합니다.
          */
@@ -290,7 +118,6 @@
             if (!isDndActive) {
                 if (minutes === '00' && seconds === '00') {
                     showClassNotification('수업 시작!', '새로운 수업을 시작할 시간입니다.');
-                    playTigerRoar();
                 } else if (minutes === '50' && seconds === '00') {
                     showClassNotification('수업 종료!', '잠깐의 휴식 시간을 즐기세요.');
                 }
@@ -353,7 +180,6 @@
             updateDndStatus();
             setInterval(updateTime, 1000);
             dndToggle.addEventListener('change', updateDndStatus);
-            testRoarButton.addEventListener('click', playTigerRoar);
         }
 
         window.onload = initialize;
